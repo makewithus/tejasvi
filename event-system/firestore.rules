@@ -1,9 +1,38 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // PUBLIC RULES FOR TESTING - DO NOT USE IN PRODUCTION
-    match /{document=**} {
-      allow read, write: if true;
+    // Utility functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == 'admin@gmail.com';
+    }
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Registrations: Public creation, Admin or Owner read/update
+    match /registrations/{regId} {
+      allow create: if true; 
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow update: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // User Profiles: Owner only
+    match /users/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+
+    // Events and Batches: Public read, Admin only write
+    match /events/{eventId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /batches/{batchId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }
